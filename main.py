@@ -108,14 +108,14 @@ class GlonaxStreamListener(threading.Thread):
                 engine = Engine.from_bytes(message)
                 glonax_store["engine"] = engine
 
-                logger.debug(f"Engine: {engine.rpm}")
+                logger.debug(f"Engine: {engine}")
             elif message_type == MessageType.GNSS:
                 gnss = Gnss.from_bytes(message)
                 glonax_store["gnss"] = gnss
 
                 logger.debug(f"GNSS: {gnss}")
-            else:
-                logger.warn(f"Unknown message type: {message_type}")
+            # else:
+            #     logger.warning(f"Unknown message type: {message_type}")
 
 
 def remote_probe():
@@ -157,6 +157,7 @@ def remote_command():
             pass
         elif command == "engine_stop":
             pass
+
 
 def main():
     logger.debug("Reading configuration file")
