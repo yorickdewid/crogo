@@ -66,6 +66,7 @@ class MessageType(Enum):
     ENGINE = 0x43
     TARGET = 0x44
     CONTROL = 0x45
+    ROTATOR = 0x46
 
 
 class Packet:
