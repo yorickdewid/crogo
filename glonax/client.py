@@ -7,6 +7,7 @@ import logging
 from enum import Enum
 from time import sleep
 from typing import Any, Callable
+from abc import abstractmethod
 from random import randbytes
 
 
@@ -214,7 +215,7 @@ class TcpConnection:
         return message_type, message
 
 
-from glonax.message import Instance
+from glonax.message import Instance, ModuleStatus, VMS, Engine, Gnss
 
 
 APPLICATION_TYPES = [
@@ -250,8 +251,6 @@ class GlonaxClient:
         self.on_message = on_message
         self.on_error = on_error
         self.on_close = on_close
-
-        self.sock = socket
 
         self.conn = TcpConnection(
             address=address,
@@ -411,10 +410,67 @@ class GlonaxClient:
             Control(Control.ControlType.ENGINE_REQUEST, value).to_bytes(),
         )
 
-    def listen(self):
+    def listen(
+        self, on_message: Callable[[Any, MessageType, bytes], None] | None = None
+    ):
+        if on_message:
+            self.on_message = on_message
+
         while True:
             message_type, message = self.conn.recv()
 
             if message_type in APPLICATION_TYPES:
                 if self.on_message:
                     self.on_message(self, message_type, message)
+
+
+# TODO: Rename to ServiceBase, move to a separate file
+class GlonaxServiceBase:
+    def __call__(self, client, message_type, message):
+        if message_type == MessageType.STATUS:
+            status = ModuleStatus.from_bytes(message)
+            self.on_status(client, status)
+        elif message_type == MessageType.VMS:
+            vms = VMS.from_bytes(message)
+            self.on_vms(client, vms)
+        elif message_type == MessageType.ENGINE:
+            engine = Engine.from_bytes(message)
+            self.on_engine(client, engine)
+        elif message_type == MessageType.GNSS:
+            gnss = Gnss.from_bytes(message)
+            self.on_gnss(client, gnss)
+
+    @abstractmethod
+    def on_status(self, client: GlonaxClient, status: ModuleStatus):
+        pass
+
+    @abstractmethod
+    def on_motion(
+        self,
+        client: GlonaxClient,
+    ):
+        pass
+
+    @abstractmethod
+    def on_vms(self, client: GlonaxClient, vms: VMS):
+        pass
+
+    @abstractmethod
+    def on_gnss(self, client: GlonaxClient, gnss: Gnss):
+        pass
+
+    @abstractmethod
+    def on_engine(self, client: GlonaxClient, engine: Engine):
+        pass
+
+    @abstractmethod
+    def on_target(self, client: GlonaxClient, target):
+        pass
+
+    @abstractmethod
+    def on_control(self, client: GlonaxClient):
+        pass
+
+    @abstractmethod
+    def on_rotator(self, client: GlonaxClient):
+        pass
