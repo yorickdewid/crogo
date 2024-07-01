@@ -69,61 +69,61 @@ class ModuleStatus(BaseModel):
         )
 
 
-# TODO: Can be removed
-class VMS(BaseModel):
-    memory_used: int
-    memory_total: int  # TODO: Remove, should not change
-    swap_used: int  # TODO: Remove, swap should always be 0
-    swap_total: int  # TODO: Remove, swap should always be 0
-    cpu_load: list[float]
-    uptime: int
-    timestamp: datetime.datetime
+# # TODO: Can be removed
+# class VMS(BaseModel):
+#     memory_used: int
+#     memory_total: int  # TODO: Remove, should not change
+#     swap_used: int  # TODO: Remove, swap should always be 0
+#     swap_total: int  # TODO: Remove, swap should always be 0
+#     cpu_load: list[float]
+#     uptime: int
+#     timestamp: datetime.datetime
 
-    @property
-    def memory_used_mb(self):
-        return self.memory_used / 1024 / 1024
+#     @property
+#     def memory_used_mb(self):
+#         return self.memory_used / 1024 / 1024
 
-    @property
-    def memory_total_mb(self):
-        return self.memory_total / 1024 / 1024
+#     @property
+#     def memory_total_mb(self):
+#         return self.memory_total / 1024 / 1024
 
-    @property
-    def swap_used_mb(self):
-        return self.swap_used / 1024 / 1024
+#     @property
+#     def swap_used_mb(self):
+#         return self.swap_used / 1024 / 1024
 
-    @property
-    def swap_total_mb(self):
-        return self.swap_total / 1024 / 1024
+#     @property
+#     def swap_total_mb(self):
+#         return self.swap_total / 1024 / 1024
 
-    def from_bytes(data):
-        memory_used = struct.unpack(">Q", data[:8])[0]
-        memory_total = struct.unpack(">Q", data[8:16])[0]
-        swap_used = struct.unpack(">Q", data[16:24])[0]
-        swap_total = struct.unpack(">Q", data[24:32])[0]
-        cpu_load = struct.unpack(">ddd", data[32:56])
-        uptime = struct.unpack(">Q", data[56:64])[0]
-        timestamp = struct.unpack(">q", data[64:72])[0]
+#     def from_bytes(data):
+#         memory_used = struct.unpack(">Q", data[:8])[0]
+#         memory_total = struct.unpack(">Q", data[8:16])[0]
+#         swap_used = struct.unpack(">Q", data[16:24])[0]
+#         swap_total = struct.unpack(">Q", data[24:32])[0]
+#         cpu_load = struct.unpack(">ddd", data[32:56])
+#         uptime = struct.unpack(">Q", data[56:64])[0]
+#         timestamp = struct.unpack(">q", data[64:72])[0]
 
-        return VMS(
-            memory_used=memory_used,
-            memory_total=memory_total,
-            swap_used=swap_used,
-            swap_total=swap_total,
-            cpu_load=cpu_load,
-            uptime=uptime,
-            timestamp=datetime.datetime.fromtimestamp(timestamp),
-        )
+#         return VMS(
+#             memory_used=memory_used,
+#             memory_total=memory_total,
+#             swap_used=swap_used,
+#             swap_total=swap_total,
+#             cpu_load=cpu_load,
+#             uptime=uptime,
+#             timestamp=datetime.datetime.fromtimestamp(timestamp),
+#         )
 
-    def to_bytes(self):
-        return (
-            struct.pack(">Q", self.memory_used)
-            + struct.pack(">Q", self.memory_total)
-            + struct.pack(">Q", self.swap_used)
-            + struct.pack(">Q", self.swap_total)
-            + struct.pack(">ddd", *self.cpu_load)
-            + struct.pack(">Q", self.uptime)
-            + struct.pack(">q", self.timestamp.timestamp())
-        )
+#     def to_bytes(self):
+#         return (
+#             struct.pack(">Q", self.memory_used)
+#             + struct.pack(">Q", self.memory_total)
+#             + struct.pack(">Q", self.swap_used)
+#             + struct.pack(">Q", self.swap_total)
+#             + struct.pack(">ddd", *self.cpu_load)
+#             + struct.pack(">Q", self.uptime)
+#             + struct.pack(">q", self.timestamp.timestamp())
+#         )
 
 
 class Engine(BaseModel):

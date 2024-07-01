@@ -215,7 +215,7 @@ class TcpConnection:
         return message_type, message
 
 
-from glonax.message import Instance, ModuleStatus, VMS, Engine, Gnss
+from glonax.message import Instance, ModuleStatus, Engine, Gnss
 
 
 APPLICATION_TYPES = [

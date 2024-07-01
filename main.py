@@ -50,15 +50,17 @@ def on_error(ws, error):
 
 
 def on_close(ws, close_status_code, close_msg):
+    global is_connected
     print("### closed ###")
+
+    is_connected = False
 
 
 def on_open(ws):
     global is_connected
 
-    message = ChannelMessage(type="signal", topic="boot")
-
     if ws:
+        message = ChannelMessage(type="signal", topic="boot")
         ws.send(message.model_dump_json())
 
     is_connected = True
