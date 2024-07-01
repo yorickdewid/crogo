@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
+import time
 import logging
+import threading
 import configparser
 import websocket
 import json
-import httpx
-
 
 from glonax import client as gclient
 from glonax.client import GlonaxServiceBase
@@ -20,8 +20,7 @@ logging.basicConfig(
 config = configparser.ConfigParser()
 logger = logging.getLogger()
 
-
-glonax_store = {}
+is_connected = False
 
 
 class ChannelMessage(BaseModel):
@@ -42,21 +41,18 @@ def on_error(ws, error):
     print("Error:", error)
 
 
-def on_close(ws):
-    print("Connection closed")
-
-
-is_connected = False
+def on_close(ws, close_status_code, close_msg):
+    print("### closed ###")
 
 
 def on_open(ws):
     global is_connected
 
-    message = {
-        "type": "notify",
-        "topic": "boot",
-    }
-    ws.send(json.dumps(message))
+    # message = {
+    #     "type": "notify",
+    #     "topic": "boot",
+    # }
+    # ws.send(json.dumps(message))
 
     is_connected = True
 
@@ -71,101 +67,39 @@ ws = websocket.WebSocketApp(
 )
 
 
-# class GlonaxStreamListener(threading.Thread):
-#     def __init__(self):
-#         super().__init__()
-
-#     def run(self):
-#         glonax_address = config["glonax"]["address"]
-#         glonax_port = config["glonax"]["port"]
-
-#         client = gclient.Client(glonax_address, int(glonax_port))
-#         client.connect()
-
-#         vms_last: VMS | None = None
-#         engine_last: Engine | None = None
-
-#         while True:
-#             message_type, message = client.recv()
-
-#             if message_type == MessageType.STATUS:
-#                 status = ModuleStatus.from_bytes(message)
-#                 print(status)
-
-#                 message = ChannelMessage(
-#                     type="signal", topic="status", data=status.model_dump()
-#                 )
-
-#                 # TODO: Only send if the connection is open
-#                 # ws.send(message.model_dump_json())
-
-#             elif message_type == MessageType.VMS:
-#                 vms = VMS.from_bytes(message)
-#                 print(vms)
-
-#                 if vms_last == vms:
-#                     print("VMS is the same")
-#                     continue
-
-#                 message = ChannelMessage(
-#                     type="signal", topic="vms", data=vms.model_dump()
-#                 )
-
-#                 # TODO: Only send if the connection is open
-#                 # ws.send(message.model_dump_json())
-
-#                 vms_last = vms
-
-#             elif message_type == MessageType.ENGINE:
-#                 engine = Engine.from_bytes(message)
-#                 print(engine)
-
-#                 if engine_last == engine:
-#                     print("Engine is the same")
-#                     continue
-
-#                 message = ChannelMessage(
-#                     type="signal", topic="engine", data=engine.model_dump()
-#                 )
-
-#                 # TODO: Only send if the connection is open
-#                 # ws.send(message.model_dump_json())
-
-#                 engine_last = engine
-
-#             #     glonax_store["engine"] = engine
-
-#             #     # logger.debug(f"Engine: {engine}")
-#             # elif message_type == MessageType.GNSS:
-#             #     gnss = Gnss.from_bytes(message)
-#             #     glonax_store["gnss"] = gnss
-
-#             # logger.debug(f"GNSS: {gnss}")
-#             # else:
-#             #     logger.warning(f"Unknown message type: {message_type}")
-
-
 class GlonaxService(GlonaxServiceBase):
     global is_connected
 
+    status_map = {}
+    status_map_last_update = {}
     gnss_last: Gnss | None = None
-    vms_last: VMS | None = None
+    gnss_last_update = time.time()
     engine_last: Engine | None = None
+    engine_last_update = time.time()
 
     def on_status(self, client: gclient.GlonaxClient, status: ModuleStatus):
-        print(status)
+        val = self.status_map.get(status.name)
+        last_update = self.status_map_last_update.get(status.name, 0)
+        last_update_elapsed = time.time() - last_update
+        if val is None or val != status or last_update_elapsed > 5:
+            logger.info(f"Status: {status}")
 
-        message = ChannelMessage(
-            type="signal", topic="status", data=status.model_dump()
-        )
+            message = ChannelMessage(
+                type="signal", topic="status", data=status.model_dump()
+            )
 
-        if is_connected:
-            # TODO: Only send if the connection is open
-            ws.send(message.model_dump_json())
+            if is_connected:
+                # TODO: Only send if the connection is open
+                ws.send(message.model_dump_json())
+
+            self.status_map[status.name] = status
+            self.status_map_last_update[status.name] = time.time()
 
     def on_gnss(self, client: gclient.GlonaxClient, gnss: Gnss):
-        if self.gnss_last == gnss:
-            print(gnss)
+        gnss_last_update_elapsed = time.time() - self.gnss_last_update
+        if self.gnss_last == gnss or gnss_last_update_elapsed > 5:
+            logger.info(f"GNSS: {gnss}")
+
             message = ChannelMessage(
                 type="signal", topic="gnss", data=gnss.model_dump()
             )
@@ -175,10 +109,12 @@ class GlonaxService(GlonaxServiceBase):
                 ws.send(message.model_dump_json())
 
             self.gnss_last = gnss
+            self.gnss_last_update = time.time()
 
     def on_engine(self, client: gclient.GlonaxClient, engine: Engine):
-        if self.engine_last != engine:
-            print(engine)
+        engine_last_update_elapsed = time.time() - self.engine_last_update
+        if self.engine_last != engine or engine_last_update_elapsed > 5:
+            logger.info(f"Engine: {engine}")
             message = ChannelMessage(
                 type="signal", topic="engine", data=engine.model_dump()
             )
@@ -188,19 +124,7 @@ class GlonaxService(GlonaxServiceBase):
                 ws.send(message.model_dump_json())
 
             self.engine_last = engine
-
-    # def on_vms(self, client: gclient.GlonaxClient, vms: VMS):
-    # pass
-    # TODO: Check if too much time has passed, then send a signal
-    # if self.vms_last != vms:
-    #     print(vms)
-    #     message = ChannelMessage(type="signal", topic="vms", data=vms.model_dump())
-
-    #     if is_connected:
-    #         # TODO: Only send if the connection is open
-    #         ws.send(message.model_dump_json())
-
-    #     self.vms_last = vms
+            self.engine_last_update = time.time()
 
 
 if __name__ == "__main__":
@@ -211,7 +135,13 @@ if __name__ == "__main__":
 
     instance = config["glonax"]["instance"]
 
-    glonax_service = GlonaxService()
+    def glonax_function():
+        glonax_service = GlonaxService()
 
-    client = gclient.GlonaxClient(glonax_address)
-    client.listen(glonax_service)
+        client = gclient.GlonaxClient(glonax_address)
+        client.listen(glonax_service)
+
+    x = threading.Thread(target=glonax_function)
+    x.start()
+
+    ws.run_forever()
