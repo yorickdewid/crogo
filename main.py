@@ -27,7 +27,7 @@ ws: websocket.WebSocketApp | None = None
 
 class ChannelMessage(BaseModel):
     type: str
-    topic: str | None = None
+    topic: str
     data: dict | None = None
 
 
@@ -55,6 +55,11 @@ def on_close(ws, close_status_code, close_msg):
 
 def on_open(ws):
     global is_connected
+
+    message = ChannelMessage(type="signal", topic="boot")
+
+    if ws:
+        ws.send(message.model_dump_json())
 
     is_connected = True
 
