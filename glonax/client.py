@@ -48,7 +48,7 @@ class MessageType(Enum):
     MOTION = 0x20
     SIGNAL = 0x31
     ACTOR = 0x40
-    VMS = 0x41
+    VMS = 0x41  # TODO: Remove this message type
     GNSS = 0x42
     ENGINE = 0x43
     TARGET = 0x44
@@ -314,38 +314,6 @@ class GlonaxClient:
             )
             logger.debug(f"Instance serial number: {self.machine.serial_number}")
 
-    # def status(self):
-    #     self.send(MessageType.REQUEST, Request(MessageType.STATUS).to_bytes())
-
-    #     message_type, message = self.recv()
-    #     if message_type == MessageType.STATUS:
-    #         return Status.from_bytes(message)
-    #     raise Exception("Invalid message type received")
-
-    # def vms(self):
-    #     self.send(MessageType.REQUEST, Request(MessageType.VMS).to_bytes())
-
-    #     message_type, message = self.recv()
-    #     if message_type == MessageType.VMS:
-    #         return VMS.from_bytes(message)
-    #     raise Exception("Invalid message type received")
-
-    # def engine(self):
-    #     self.send(MessageType.REQUEST, Request(MessageType.ENGINE).to_bytes())
-
-    #     message_type, message = self.recv()
-    #     if message_type == MessageType.ENGINE:
-    #         return Engine.from_bytes(message)
-    #     raise Exception("Invalid message type received")
-
-    # def gnss(self):
-    #     self.send(MessageType.REQUEST, Request(MessageType.GNSS).to_bytes())
-
-    #     message_type, message = self.recv()
-    #     if message_type == MessageType.GNSS:
-    #         return Gnss.from_bytes(message)
-    #     raise Exception("Invalid message type received")
-
     def horn(self, value: bool):
         """
         Sends a control message to activate the machine horn.
@@ -422,8 +390,7 @@ class GlonaxServiceBase:
             status = ModuleStatus.from_bytes(message)
             self.on_status(client, status)
         elif message_type == MessageType.VMS:
-            vms = VMS.from_bytes(message)
-            self.on_vms(client, vms)
+            pass
         elif message_type == MessageType.ENGINE:
             engine = Engine.from_bytes(message)
             self.on_engine(client, engine)
@@ -440,10 +407,6 @@ class GlonaxServiceBase:
         self,
         client: GlonaxClient,
     ):
-        pass
-
-    @abstractmethod
-    def on_vms(self, client: GlonaxClient, vms: VMS):
         pass
 
     @abstractmethod

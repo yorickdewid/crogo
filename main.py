@@ -189,18 +189,18 @@ class GlonaxService(GlonaxServiceBase):
 
             self.engine_last = engine
 
-    def on_vms(self, client: gclient.GlonaxClient, vms: VMS):
-        pass
-        # TODO: Check if too much time has passed, then send a signal
-        # if self.vms_last != vms:
-        #     print(vms)
-        #     message = ChannelMessage(type="signal", topic="vms", data=vms.model_dump())
+    # def on_vms(self, client: gclient.GlonaxClient, vms: VMS):
+    # pass
+    # TODO: Check if too much time has passed, then send a signal
+    # if self.vms_last != vms:
+    #     print(vms)
+    #     message = ChannelMessage(type="signal", topic="vms", data=vms.model_dump())
 
-        #     if is_connected:
-        #         # TODO: Only send if the connection is open
-        #         ws.send(message.model_dump_json())
+    #     if is_connected:
+    #         # TODO: Only send if the connection is open
+    #         ws.send(message.model_dump_json())
 
-        #     self.vms_last = vms
+    #     self.vms_last = vms
 
 
 if __name__ == "__main__":
