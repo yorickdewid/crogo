@@ -1,20 +1,16 @@
 #!/usr/bin/env python3
 
-import datetime
-import subprocess
-import time
 import logging
 import configparser
 import websocket
 import json
 import httpx
-import psutil
 
 
 from glonax import client as gclient
 from glonax.client import GlonaxServiceBase
 from glonax.message import VMS, Engine, ModuleStatus, Gnss
-from rms import RemoteManagementService
+from pydantic import BaseModel
 
 
 logging.basicConfig(
@@ -26,6 +22,12 @@ logger = logging.getLogger()
 
 
 glonax_store = {}
+
+
+class ChannelMessage(BaseModel):
+    type: str
+    topic: str | None = None
+    data: dict | None = None
 
 
 def on_message(ws, message):
@@ -67,14 +69,6 @@ ws = websocket.WebSocketApp(
     on_close=on_close,
     on_open=on_open,
 )
-
-from pydantic import BaseModel
-
-
-class ChannelMessage(BaseModel):
-    type: str
-    topic: str | None = None
-    data: dict | None = None
 
 
 # class GlonaxStreamListener(threading.Thread):
@@ -151,47 +145,6 @@ class ChannelMessage(BaseModel):
 #             #     logger.warning(f"Unknown message type: {message_type}")
 
 
-def remote_probe():
-    server_config = config["server"]
-
-    host = server_config["host"]
-    auth = server_config["authkey"]
-
-    vms = glonax_store.get("vms")
-    instance = glonax_store.get("instance")
-
-    if not instance or not vms:
-        return
-
-    rms = RemoteManagementService(host, auth, instance)
-    rms.register_telemetry(vms)
-
-
-def remote_manifest():
-    server_config = config["server"]
-
-    host = server_config["host"]
-    auth = server_config["authkey"]
-
-    instance = glonax_store.get("instance")
-
-    if not instance:
-        return
-
-    rms = RemoteManagementService(host, auth, instance)
-    manifest = rms.fetch_manifest()
-    print(f"Manifest: {manifest}")
-
-
-# def main():
-#     logger.debug("Reading configuration file")
-
-#     config.read("config.ini")
-
-#     glonax_listener = GlonaxStreamListener()
-#     glonax_listener.start()
-
-
 class GlonaxService(GlonaxServiceBase):
     global is_connected
 
@@ -237,101 +190,28 @@ class GlonaxService(GlonaxServiceBase):
             self.engine_last = engine
 
     def on_vms(self, client: gclient.GlonaxClient, vms: VMS):
+        pass
         # TODO: Check if too much time has passed, then send a signal
-        if self.vms_last != vms:
-            print(vms)
-            message = ChannelMessage(type="signal", topic="vms", data=vms.model_dump())
+        # if self.vms_last != vms:
+        #     print(vms)
+        #     message = ChannelMessage(type="signal", topic="vms", data=vms.model_dump())
 
-            if is_connected:
-                # TODO: Only send if the connection is open
-                ws.send(message.model_dump_json())
+        #     if is_connected:
+        #         # TODO: Only send if the connection is open
+        #         ws.send(message.model_dump_json())
 
-            self.vms_last = vms
-
-
-class Telemetry(BaseModel):
-    memory_used: float
-    disk_used: float
-    cpu_freq: float
-    cpu_load: tuple[float, float, float]
-    uptime: int
-    created_at: datetime.timedelta | None = None
-
-
-def create_telemetry() -> Telemetry:
-    def seconds_elapsed() -> int:
-        return round(time.time() - psutil.boot_time())
-
-    telemetry = Telemetry(
-        memory_used=psutil.virtual_memory().percent,
-        disk_used=psutil.disk_usage("/").percent,
-        cpu_freq=psutil.cpu_freq().current,
-        cpu_load=psutil.getloadavg(),
-        uptime=seconds_elapsed(),
-    )
-    return telemetry
-
-
-class HostConfig(BaseModel):
-    # instance: UUID # TODO: Add this field
-    name: str | None = None
-    hostname: str
-    kernel: str
-    # memory_total: int # TODO: Add this field
-    # cpu_count: int # TODO: Add this field
-    model: str
-    version: int
-    serial_number: str
-
-
-def create_host_config() -> HostConfig:
-    hostname = subprocess.check_output(["hostname"]).decode().strip()
-    kernel = subprocess.check_output(["uname", "-r"]).decode().strip()
-
-    host_config = HostConfig(
-        hostname=hostname,
-        kernel=kernel,
-        model="test",
-        version=378,
-        serial_number="test",
-    )
-    return host_config
+        #     self.vms_last = vms
 
 
 if __name__ == "__main__":
     config.read("config.ini")
 
-    # glonax_address = config["glonax"]["address"]
+    glonax_address = config["glonax"]["address"]
     # glonax_port = config["glonax"]["port"]
 
     instance = config["glonax"]["instance"]
 
-    headers = {"Authorization": "Bearer " + config["server"]["authkey"]}
+    glonax_service = GlonaxService()
 
-    def update_host():
-        data = create_host_config().model_dump()
-
-        host = config["server"]["host"].rstrip("/")
-
-        r = httpx.put(f"{host}/{instance}/host", json=data, headers=headers)
-        r.raise_for_status()
-
-    def update_telemetry():
-        data = create_telemetry().model_dump()
-
-        host = config["server"]["host"].rstrip("/")
-
-        r = httpx.post(f"{host}/{instance}/telemetry", json=data, headers=headers)
-        r.raise_for_status()
-
-    update_host()
-
-    while True:
-        update_telemetry()
-
-        time.sleep(60)
-
-    # glonax_service = GlonaxService()
-
-    # client = gclient.GlonaxClient(glonax_address)
-    # client.listen(glonax_service)
+    client = gclient.GlonaxClient(glonax_address)
+    client.listen(glonax_service)

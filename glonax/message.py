@@ -69,6 +69,7 @@ class ModuleStatus(BaseModel):
         )
 
 
+# TODO: Can be removed
 class VMS(BaseModel):
     memory_used: int
     memory_total: int  # TODO: Remove, should not change

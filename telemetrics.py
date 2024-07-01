@@ -8,7 +8,7 @@ import configparser
 import httpx
 import psutil
 
-
+from pydantic import BaseModel
 from rms import RemoteManagementService
 
 
@@ -20,7 +20,25 @@ config = configparser.ConfigParser()
 logger = logging.getLogger()
 
 
-from pydantic import BaseModel
+class Telemetry(BaseModel):
+    memory_used: float
+    disk_used: float
+    cpu_freq: float
+    cpu_load: tuple[float, float, float]
+    uptime: int
+    created_at: datetime.timedelta | None = None
+
+
+class HostConfig(BaseModel):
+    # instance: UUID # TODO: Add this field
+    name: str | None = None
+    hostname: str
+    kernel: str
+    # memory_total: int # TODO: Add this field
+    # cpu_count: int # TODO: Add this field
+    model: str
+    version: int
+    serial_number: str
 
 
 def remote_manifest():
@@ -37,15 +55,6 @@ def remote_manifest():
     print(f"Manifest: {manifest}")
 
 
-class Telemetry(BaseModel):
-    memory_used: float
-    disk_used: float
-    cpu_freq: float
-    cpu_load: tuple[float, float, float]
-    uptime: int
-    created_at: datetime.timedelta | None = None
-
-
 def create_telemetry() -> Telemetry:
     def seconds_elapsed() -> int:
         return round(time.time() - psutil.boot_time())
@@ -58,18 +67,6 @@ def create_telemetry() -> Telemetry:
         uptime=seconds_elapsed(),
     )
     return telemetry
-
-
-class HostConfig(BaseModel):
-    # instance: UUID # TODO: Add this field
-    name: str | None = None
-    hostname: str
-    kernel: str
-    # memory_total: int # TODO: Add this field
-    # cpu_count: int # TODO: Add this field
-    model: str
-    version: int
-    serial_number: str
 
 
 def create_host_config() -> HostConfig:

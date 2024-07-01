@@ -5,12 +5,6 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-ENDPOINTS = {
-    "clients": "/clients",
-    "telemetry": "/telemetry",
-    "command": "/command",
-}
-
 
 def get_hostname():
     """Run the hostname command and return the output as a string"""
@@ -33,11 +27,10 @@ class RemoteManagementService:
     def _call_headers(self):
         return {
             "Authorization": f"Bearer {self.auth}",
-            "X-Instance-ID": str(self.instance.id),
         }
 
     def register_telemetry(self, vms):
-        url = f"{self.host}{ENDPOINTS['telemetry']}"
+        url = f"{self.host}/api/{self.instance.id}/telemetry"
 
         try:
             hostname = get_hostname()
@@ -74,19 +67,41 @@ class RemoteManagementService:
                 "rpm": 0,
             }
 
-            print(f"Data: {data}")
+            # print(f"Data: {data}")
             response = requests.post(
-                url, json=data, headers=self._call_headers(), timeout=5
+                url, json=data, headers=self._call_headers(), timeout=15
             )
             response.raise_for_status()
         except Exception as e:
             logger.error(f"Error: {e}")
 
-    def fetch_commands(self):
-        url = f"{self.host}{ENDPOINTS['command']}"
+    def fetch_manifest(self):
+        url = f"{self.host}{self.instance.id}/manifest"
 
         try:
             response = requests.get(url, headers=self._call_headers(), timeout=5)
+            response.raise_for_status()
+
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error: {e}")
+
+    def fetch_commands(self):
+        url = f"{self.host}{self.instance.id}/command"
+
+        try:
+            response = requests.get(url, headers=self._call_headers(), timeout=5)
+            response.raise_for_status()
+
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error: {e}")
+
+    def get_remote_client(self):
+        url = f"{self.host}/client"
+
+        try:
+            response = requests.get(url, timeout=5)
             response.raise_for_status()
 
             return response.json()
