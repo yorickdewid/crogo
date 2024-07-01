@@ -260,7 +260,7 @@ class GlonaxClient:
         self.conn.connect()
 
     def _on_connect(self):
-        latency = self.probe()
+        latency = self.ping()
         logger.debug(f"Conection latency: {latency:.2f} seconds")
 
         self._handshake()
@@ -269,15 +269,6 @@ class GlonaxClient:
             self.on_connect(self)
 
     def ping(self) -> float:
-        """
-        Sends an echo message to the server and measures the elapsed time for the response.
-
-        Returns:
-            float: The elapsed time in milliseconds.
-        """
-        return self.probe()
-
-    def probe(self) -> float:
         """
         Sends an echo message to the server and measures the elapsed time for the response.
 
