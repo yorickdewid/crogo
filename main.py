@@ -9,8 +9,8 @@ import json
 
 from glonax import client as gclient
 from glonax.client import GlonaxServiceBase
-from glonax.message import VMS, Engine, ModuleStatus, Gnss
-from pydantic import BaseModel
+from glonax.message import Engine, ModuleStatus, Gnss
+from pydantic import BaseModel, ValidationError
 
 
 logging.basicConfig(
@@ -22,6 +22,8 @@ logger = logging.getLogger()
 
 is_connected = False
 
+ws: websocket.WebSocketApp | None = None
+
 
 class ChannelMessage(BaseModel):
     type: str
@@ -32,9 +34,15 @@ class ChannelMessage(BaseModel):
 def on_message(ws, message):
     try:
         data = json.loads(message)  # Assuming JSON messages
-        print("Received:", data)
+
+        message = ChannelMessage(**data)
+
+        print("Received message:", message)
+
     except json.JSONDecodeError:
         print("Received raw message:", message)
+    except ValidationError as e:
+        print("Validation error:", e)
 
 
 def on_error(ws, error):
@@ -48,23 +56,7 @@ def on_close(ws, close_status_code, close_msg):
 def on_open(ws):
     global is_connected
 
-    # message = {
-    #     "type": "notify",
-    #     "topic": "boot",
-    # }
-    # ws.send(json.dumps(message))
-
     is_connected = True
-
-
-ws = websocket.WebSocketApp(
-    # "wss://edge.laixer.equipment/78adc7fc-6f60-4fc7-81ed-91396892f4a1/ws",
-    "ws://localhost:8000/api/78adc7fc-6f60-4fc7-81ed-91396892f4a1/ws",
-    on_message=on_message,
-    on_error=on_error,
-    on_close=on_close,
-    on_open=on_open,
-)
 
 
 class GlonaxService(GlonaxServiceBase):
@@ -81,14 +73,14 @@ class GlonaxService(GlonaxServiceBase):
         val = self.status_map.get(status.name)
         last_update = self.status_map_last_update.get(status.name, 0)
         last_update_elapsed = time.time() - last_update
-        if val is None or val != status or last_update_elapsed > 5:
+        if val is None or val != status or last_update_elapsed > 15:
             logger.info(f"Status: {status}")
 
             message = ChannelMessage(
                 type="signal", topic="status", data=status.model_dump()
             )
 
-            if is_connected:
+            if is_connected and ws:
                 # TODO: Only send if the connection is open
                 ws.send(message.model_dump_json())
 
@@ -97,14 +89,14 @@ class GlonaxService(GlonaxServiceBase):
 
     def on_gnss(self, client: gclient.GlonaxClient, gnss: Gnss):
         gnss_last_update_elapsed = time.time() - self.gnss_last_update
-        if self.gnss_last == gnss or gnss_last_update_elapsed > 5:
+        if self.gnss_last == gnss or gnss_last_update_elapsed > 15:
             logger.info(f"GNSS: {gnss}")
 
             message = ChannelMessage(
                 type="signal", topic="gnss", data=gnss.model_dump()
             )
 
-            if is_connected:
+            if is_connected and ws:
                 # TODO: Only send if the connection is open
                 ws.send(message.model_dump_json())
 
@@ -113,13 +105,13 @@ class GlonaxService(GlonaxServiceBase):
 
     def on_engine(self, client: gclient.GlonaxClient, engine: Engine):
         engine_last_update_elapsed = time.time() - self.engine_last_update
-        if self.engine_last != engine or engine_last_update_elapsed > 5:
+        if self.engine_last != engine or engine_last_update_elapsed > 15:
             logger.info(f"Engine: {engine}")
             message = ChannelMessage(
                 type="signal", topic="engine", data=engine.model_dump()
             )
 
-            if is_connected:
+            if is_connected and ws:
                 # TODO: Only send if the connection is open
                 ws.send(message.model_dump_json())
 
@@ -134,6 +126,15 @@ if __name__ == "__main__":
     # glonax_port = config["glonax"]["port"]
 
     instance = config["glonax"]["instance"]
+
+    ws = websocket.WebSocketApp(
+        # f"wss://edge.laixer.equipment/api/{instance}/ws",
+        f"ws://localhost:8000/{instance}/ws",
+        on_message=on_message,
+        on_error=on_error,
+        on_close=on_close,
+        on_open=on_open,
+    )
 
     def glonax_function():
         glonax_service = GlonaxService()
